@@ -6,15 +6,15 @@ Resources:
   DeployUser:
     Type: AWS::IAM::User
     Properties:
-      UserName: deploy-iam-sample-user
+      UserName: "deploy-iam-sample-user"
 
   # デプロイ用のIAMユーザに付与するIAMポリシー（AssumeRoleできる）
   DeployUserPoricy:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: deploy-iam-sample-user-policy
+      PolicyName: "deploy-iam-sample-user-policy"
       PolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
           - Effect: "Allow"
             Action: "sts:AssumeRole"
@@ -22,41 +22,65 @@ Resources:
       Users:
         - !Ref DeployUser
 
-  # デプロイ用のIAMユーザがAssumeRoleするIAMロール（CloudFormationに対する権限）
+  # デプロイ用のIAMユーザがAssumeRoleするIAMロール（CloudFormationとS3に対する権限）
   DeployRoleForUser:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: deploy-iam-sample-deploy-role-for-user
+      RoleName: "deploy-iam-sample-deploy-role-for-user"
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: "2012-10-17"
         Statement:
-          -
-            Effect: "Allow"
+          - Effect: "Allow"
             Action: "sts:AssumeRole"
             Principal:
               AWS:
                 - !GetAtt DeployUser.Arn
+            Condition:
+              StringEquals:
+                sts:ExternalId: "any-id-hoge-fuga"
+      Policies:
+        - PolicyName: "deploy-iam-sample-deploy-policy-for-user"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action: "iam:PassRole"
+                Resource: !GetAtt DeployRoleForCloudFormation.Arn
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
       MaxSessionDuration: 3600
 
   # CloudFormation用のIAMロール（AWS各サービスに対する権限）
   DeployRoleForCloudFormation:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: deploy-iam-sample-deploy-role-for-cloudformation
+      RoleName: "deploy-iam-sample-deploy-role-for-cloudformation"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
-          -
-            Effect: "Allow"
+          - Effect: "Allow"
             Action: "sts:AssumeRole"
             Principal:
               Service:
                 - "cloudformation.amazonaws.com"
       # 実際にデプロイする際に必要な権限
       ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
         - arn:aws:iam::aws:policy/AWSLambdaFullAccess
         - arn:aws:iam::aws:policy/IAMFullAccess
-        - arn:aws:iam::aws:policy/AmazonAPIGatewayInvokeFullAccess
+        - arn:aws:iam::aws:policy/AmazonAPIGatewayAdministrator
       MaxSessionDuration: 3600
+
+Outputs:
+  OutputDeployUser:
+    Description: "IAM User for Deploy"
+    Value: !GetAtt DeployUser.Arn
+
+  OutputDeployRoleForUser:
+    Description: "IAM Role (AssumeRole) for Deploy User"
+    Value: !GetAtt DeployRoleForUser.Arn
+
+  OutputDeployRoleForCloudFormation:
+    Description: "IAM Role (AssumeRole) for  Deploy CloudFormation"
+    Value: !GetAtt DeployRoleForCloudFormation.Arn
