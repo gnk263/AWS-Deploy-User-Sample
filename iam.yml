@@ -1,6 +1,15 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: Create IAM User and Role for deploy
 
+Parameters:
+  SamAppStackName:
+    Type: String
+    Default: "Deploy-Iam-Sample-SAM-App"
+
+  BucketName:
+    Type: String
+    Default: "cm-fujii.genki-sam-app-sample-bucket"
+
 Resources:
   # デプロイ用のIAMユーザ
   DeployUser:
@@ -44,11 +53,30 @@ Resources:
             Version: "2012-10-17"
             Statement:
               - Effect: "Allow"
-                Action: "iam:PassRole"
-                Resource: !GetAtt DeployRoleForCloudFormation.Arn
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+                Action:
+                  - "cloudformation:CreateStack"
+                  - "cloudformation:CreateChangeSet"
+                  - "cloudformation:DeleteChangeSet"
+                  - "cloudformation:DescribeChangeSet"
+                  - "cloudformation:DescribeStacks"
+                  - "cloudformation:ExecuteChangeSet"
+                Resource:
+                  - !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${SamAppStackName}/*"
+              - Effect: "Allow"
+                Action:
+                  - "s3:CreateBucket"
+                Resource:
+                  - !Sub "arn:aws:s3:::${BucketName}"
+              - Effect: "Allow"
+                Action:
+                  - "s3:PutObject"
+                Resource:
+                  - !Sub "arn:aws:s3:::${BucketName}/*"
+              - Effect: "Allow"
+                Action:
+                  - "iam:PassRole"
+                Resource:
+                  - !GetAtt DeployRoleForCloudFormation.Arn
       MaxSessionDuration: 3600
 
   # CloudFormation用のIAMロール（AWS各サービスに対する権限）
